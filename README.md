@@ -43,19 +43,22 @@ Toda rota de negócio (`/wallets/*`, `/wager-transactions/*`) exige
 a role `provider`. `/health` continua aberto (`@Public()`). O worker nunca
 registra esse guard.
 
-O fluxo é `client_credentials` contra o client confidencial `wagering-api`, não `password` grant de usuário
+O fluxo é `client_credentials` contra o client confidencial `wagering-api`, não `password` grant de usuário. Essa request é direto no Keycloak:
 
-```bash
-curl -s -X POST http://localhost:8080/realms/wagering/protocol/openid-connect/token \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=client_credentials" \
-  -d "client_id=wagering-api" \
-  -d "client_secret=wagering-api-secret"
-```
+- `POST http://localhost:8080/realms/wagering/protocol/openid-connect/token`
+  Header: `Content-Type: `
+  Body (`x-www-form-urlencoded`, não JSON)
 
-O `access_token` da resposta vai no header `Authorization: Bearer ...` de
-qualquer chamada em `/wallets` ou `/wager-transactions`. Token expira em 5
-minutos (`expires_in`).
+  ```
+  grant_type=client_credentials
+  client_id=wagering-api
+  client_secret=wagering-api-secret
+  ```
+  Resposta: `{ "access_token": "...", "expires_in": 300, ... }`
+
+O `access_token` vai no header `Authorization: Bearer <access_token>` de
+qualquer chamada em `/wallets` ou `/wager-transactions`. Expira em 5 minutos
+(`expires_in`), pede outro quando expirar.
 
 ## Rotas
 
@@ -64,7 +67,9 @@ verdade, não uma string qualquer.
 
 ### Health
 
-- `GET /health` → `{ "status": "ok", "postgres": "ok" }`
+- `GET /health` → `{ "status": "ok", "postgres": "ok" }` (API e worker)
+- `GET /health/ready` → `{ "status": "ok", "postgres": "ok", "sqs": "ok" }` (só worker, checa SQS também)
+- `GET /metrics` → métricas Prometheus (API e worker, registros separados: métricas de outbox/fila só aparecem no do worker)
 
 ### Wallets
 
@@ -140,6 +145,27 @@ docker compose exec -T localstack awslocal sqs send-message \
   --message-deduplication-id "ext-1"
 ```
 
+## Observabilidade
+
+Logger estruturado (pino, JSON) com `correlationId`/`messageId`/`providerId`
+propagados via `AsyncLocalStorage`, sem precisar passar isso em toda
+assinatura de função: nasce no middleware HTTP (header `x-correlation-id`,
+gera um novo se não vier) ou no consumer de fila (`messageId` do SQS).
+
+Métricas Prometheus (`prom-client`), um `Registry` por processo:
+
+- `wallet_lock_wait_ms` / `wallet_lock_conflicts_total`: tempo pra adquirir
+  o `FOR UPDATE` da wallet em `SubmitWagerTransactionUseCase`; conflito é
+  `wait > 5ms`, proxy honesto de contenção real (verificado com 10 BETs
+  verdadeiramente paralelos contra a mesma wallet: incrementou exatamente
+  10 vezes).
+- `wager_transaction_processing_duration_ms{outcome}`: ponta a ponta,
+  `outcome=new` (processamento novo) ou `outcome=replay` (idempotente).
+- `outbox_publish_lag_ms`: tempo entre o evento acontecer (`occurredAt`) e
+  ser publicado na fila.
+- Mais os contadores por status/kind, replays, mensagens de fila por
+  status, publicações e falhas de publicação da outbox.
+
 ## Progresso
 
 - Money como bigint imutável (centavos) e base de DomainError
@@ -160,3 +186,6 @@ docker compose exec -T localstack awslocal sqs send-message \
 - Consumer de wager-transactions.fifo, dedup por inbox, recuperação de crash
 - worker.ts: segundo processo Bun, scheduler roda consumer/publisher/retry de referência
 - Autenticação via Keycloak (client_credentials, role "provider", KeycloakAuthGuard global com @Public() pro health)
+- Logger estruturado (pino + AsyncLocalStorage pra correlationId/messageId/providerId)
+- Métricas Prometheus por processo, incluindo lock wait/conflicts, duração de processamento e lag de publicação
+- /health/ready do worker, checando SQS além do Postgres

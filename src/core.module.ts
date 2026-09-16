@@ -21,6 +21,8 @@ import { GetWalletLedgerUseCase } from "./wallets/application/use-cases/get-wall
 import { ReconcileWalletUseCase } from "./wallets/application/use-cases/reconcile-wallet.use-case";
 import { SubmitWagerTransactionUseCase } from "./wagering/application/use-cases/submit-wager-transaction.use-case";
 import { GetWagerTransactionUseCase } from "./wagering/application/use-cases/get-wager-transaction.use-case";
+import { METRICS_PORT, type MetricsPort } from "./shared/metrics/metrics.port";
+import { PrometheusMetricsService } from "./shared/metrics/prometheus-metrics.service";
 
 /**
  * Wiring de repositórios e casos de uso, sem nenhum controller/consumer.
@@ -52,6 +54,9 @@ import { GetWagerTransactionUseCase } from "./wagering/application/use-cases/get
     },
     { provide: OUTBOX_REPOSITORY, useClass: MikroOrmOutboxRepository },
 
+    { provide: PrometheusMetricsService, useClass: PrometheusMetricsService },
+    { provide: METRICS_PORT, useExisting: PrometheusMetricsService },
+
     {
       provide: WagerTransactionFinalizer,
       useFactory: (
@@ -59,18 +64,21 @@ import { GetWagerTransactionUseCase } from "./wagering/application/use-cases/get
         walletRepository: MikroOrmWalletRepository,
         ledgerRepository: MikroOrmWalletLedgerRepository,
         outboxRepository: MikroOrmOutboxRepository,
+        metrics: MetricsPort,
       ) =>
         new WagerTransactionFinalizer(
           wagerTransactionRepository,
           walletRepository,
           ledgerRepository,
           outboxRepository,
+          metrics,
         ),
       inject: [
         WAGER_TRANSACTION_REPOSITORY,
         WALLET_REPOSITORY,
         WALLET_LEDGER_REPOSITORY,
         OUTBOX_REPOSITORY,
+        METRICS_PORT,
       ],
     },
 
@@ -82,6 +90,7 @@ import { GetWagerTransactionUseCase } from "./wagering/application/use-cases/get
         ledgerRepository: MikroOrmWalletLedgerRepository,
         wagerTransactionRepository: MikroOrmWagerTransactionRepository,
         outboxRepository: MikroOrmOutboxRepository,
+        metrics: MetricsPort,
       ) =>
         new OpenWalletUseCase(
           em,
@@ -89,6 +98,7 @@ import { GetWagerTransactionUseCase } from "./wagering/application/use-cases/get
           ledgerRepository,
           wagerTransactionRepository,
           outboxRepository,
+          metrics,
         ),
       inject: [
         ENTITY_MANAGER,
@@ -96,6 +106,7 @@ import { GetWagerTransactionUseCase } from "./wagering/application/use-cases/get
         WALLET_LEDGER_REPOSITORY,
         WAGER_TRANSACTION_REPOSITORY,
         OUTBOX_REPOSITORY,
+        METRICS_PORT,
       ],
     },
     {
@@ -120,8 +131,20 @@ import { GetWagerTransactionUseCase } from "./wagering/application/use-cases/get
         em: EntityManager,
         walletRepository: MikroOrmWalletRepository,
         ledgerRepository: MikroOrmWalletLedgerRepository,
-      ) => new ReconcileWalletUseCase(em, walletRepository, ledgerRepository),
-      inject: [ENTITY_MANAGER, WALLET_REPOSITORY, WALLET_LEDGER_REPOSITORY],
+        metrics: MetricsPort,
+      ) =>
+        new ReconcileWalletUseCase(
+          em,
+          walletRepository,
+          ledgerRepository,
+          metrics,
+        ),
+      inject: [
+        ENTITY_MANAGER,
+        WALLET_REPOSITORY,
+        WALLET_LEDGER_REPOSITORY,
+        METRICS_PORT,
+      ],
     },
     {
       provide: SubmitWagerTransactionUseCase,
@@ -130,18 +153,21 @@ import { GetWagerTransactionUseCase } from "./wagering/application/use-cases/get
         finalizer: WagerTransactionFinalizer,
         walletRepository: MikroOrmWalletRepository,
         wagerTransactionRepository: MikroOrmWagerTransactionRepository,
+        metrics: MetricsPort,
       ) =>
         new SubmitWagerTransactionUseCase(
           em,
           finalizer,
           walletRepository,
           wagerTransactionRepository,
+          metrics,
         ),
       inject: [
         ENTITY_MANAGER,
         WagerTransactionFinalizer,
         WALLET_REPOSITORY,
         WAGER_TRANSACTION_REPOSITORY,
+        METRICS_PORT,
       ],
     },
     {
@@ -160,6 +186,8 @@ import { GetWagerTransactionUseCase } from "./wagering/application/use-cases/get
     WALLET_LEDGER_REPOSITORY,
     WAGER_TRANSACTION_REPOSITORY,
     OUTBOX_REPOSITORY,
+    METRICS_PORT,
+    PrometheusMetricsService,
     WagerTransactionFinalizer,
     OpenWalletUseCase,
     GetWalletUseCase,

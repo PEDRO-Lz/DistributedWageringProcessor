@@ -55,6 +55,12 @@ export class PublishOutboxBatchUseCase {
       );
       message.markPublished(now);
       this.metrics.incrementCounter("outbox_published_total");
+      // Tempo entre o evento acontecer e ser publicado, não entre ser
+      // enfileirado e publicado: occurredAt é o instante de negócio real
+      this.metrics.observeHistogram(
+        "outbox_publish_lag_ms",
+        now.getTime() - message.occurredAt.getTime(),
+      );
     } catch {
       message.scheduleRetry(now);
       this.metrics.incrementCounter("outbox_publish_failures_total");

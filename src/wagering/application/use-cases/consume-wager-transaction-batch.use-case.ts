@@ -4,6 +4,8 @@ import {
   NOOP_METRICS,
   type MetricsPort,
 } from "../../../shared/metrics/metrics.port";
+import { logger } from "../../../shared/logging/logger";
+import { runWithLogContext } from "../../../shared/logging/log-context";
 import { InboxMessage } from "../../../messaging/inbox/inbox-message";
 import type { InboxRepositoryPort } from "../../../messaging/inbox/inbox-repository.port";
 import { WAGER_TRANSACTIONS_QUEUE } from "../../../messaging/sqs/queue-names";
@@ -68,11 +70,20 @@ export class ConsumeWagerTransactionBatchUseCase {
   }
 
   async handle(message: ReceivedSqsMessage): Promise<ConsumeOutcome> {
+    return runWithLogContext({ messageId: message.messageId }, () =>
+      this.handleWithLogContext(message),
+    );
+  }
+
+  private async handleWithLogContext(
+    message: ReceivedSqsMessage,
+  ): Promise<ConsumeOutcome> {
     const now = new Date();
     const payloadHash = createHash("sha256").update(message.body).digest("hex");
 
     try {
       let wasDuplicate = false;
+      let providerId: string | undefined;
 
       await this.em.transactional(async (em) => {
         const existing = await this.inboxRepository.findByConsumerAndMessageId(
@@ -97,7 +108,10 @@ export class ConsumeWagerTransactionBatchUseCase {
         }
 
         const command = parseWagerTransactionMessage(message.body);
-        await this.submitUseCase.execute(command);
+        providerId = command.providerId;
+        await runWithLogContext({ providerId }, () =>
+          this.submitUseCase.execute(command),
+        );
         await this.inboxRepository.markProcessed(
           em,
           CONSUMER_NAME,
@@ -106,13 +120,24 @@ export class ConsumeWagerTransactionBatchUseCase {
         );
       });
 
-      return wasDuplicate
-        ? { status: "duplicate", ack: true }
-        : { status: "processed", ack: true };
+      if (wasDuplicate) {
+        logger.info("mensagem duplicada (redelivery), ignorada");
+        return { status: "duplicate", ack: true };
+      }
+      logger.info("wager transaction processada via mensageria", {
+        providerId,
+      });
+      return { status: "processed", ack: true };
     } catch (err) {
       if (err instanceof InvalidWagerTransactionMessageError) {
+        logger.warn("mensagem malformada, não será reentregue com sucesso", {
+          error: err.message,
+        });
         return { status: "malformed", ack: false, error: err };
       }
+      logger.error("erro processando mensagem de wager transaction", {
+        error: err instanceof Error ? err.message : String(err),
+      });
       return { status: "error", ack: false, error: err };
     }
   }

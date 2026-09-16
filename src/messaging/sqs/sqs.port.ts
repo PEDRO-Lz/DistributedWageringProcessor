@@ -22,6 +22,10 @@ export interface SqsPort {
   ): Promise<ReceivedSqsMessage[]>;
 
   delete(queueName: string, receiptHandle: string): Promise<void>;
+
+  // Só metadado (GetQueueUrl), nunca toca em mensagem: seguro chamar num
+  // health check sem risco de "roubar" uma mensagem real da fila
+  checkConnection(queueName: string): Promise<void>;
 }
 
 export const SQS_PORT = Symbol("SQS_PORT");

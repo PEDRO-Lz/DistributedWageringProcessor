@@ -71,13 +71,26 @@ export class SubmitWagerTransactionUseCase {
       referenceExternalTransactionId: cmd.referenceExternalTransactionId,
     });
 
+    const startedAt = performance.now();
     try {
-      return await this.em.transactional((em) =>
+      const result = await this.em.transactional((em) =>
         this.processNew(em, cmd, payloadHash),
       );
+      this.metrics.observeHistogram(
+        "wager_transaction_processing_duration_ms",
+        performance.now() - startedAt,
+        { outcome: "new" },
+      );
+      return result;
     } catch (err) {
       if (err instanceof UniqueConstraintViolationException) {
-        return this.handleClaimConflict(cmd, payloadHash);
+        const result = await this.handleClaimConflict(cmd, payloadHash);
+        this.metrics.observeHistogram(
+          "wager_transaction_processing_duration_ms",
+          performance.now() - startedAt,
+          { outcome: "replay" },
+        );
+        return result;
       }
       throw err;
     }
@@ -96,11 +109,20 @@ export class SubmitWagerTransactionUseCase {
     // duas transações concorrentes conseguem os dois esse shared lock, e
     // então cada uma trava esperando a outra soltar pra fazer o upgrade
     // pra FOR UPDATE). Travando primeiro, nunca existe essa inversão.
+    const lockStartedAt = performance.now();
     const wallet = await this.walletRepository.findById(
       em,
       cmd.walletId,
       LockMode.PESSIMISTIC_WRITE,
     );
+    const lockWaitMs = performance.now() - lockStartedAt;
+    this.metrics.observeHistogram("wallet_lock_wait_ms", lockWaitMs);
+    // >5ms sem outra query pesada no meio é um proxy honesto de que outra
+    // transação estava com essa mesma wallet travada, não é a latência
+    // normal de rede/planejamento da query.
+    if (lockWaitMs > 5) {
+      this.metrics.incrementCounter("wallet_lock_conflicts_total");
+    }
     if (!wallet) {
       throw new WalletNotFoundError(cmd.walletId);
     }

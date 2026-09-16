@@ -38,6 +38,7 @@ class AlwaysFailingSqs implements SqsPort {
   async receive(): Promise<ReceivedSqsMessage[]> {
     return [];
   }
+  async checkConnection(): Promise<void> {}
   async delete(): Promise<void> {}
 }
 
@@ -115,15 +116,13 @@ describe("PublishOutboxBatchUseCase (integração, Postgres + LocalStack reais)"
     const published = await useCase.run(10);
     expect(published).toBe(1);
 
-    const [row] = await orm.em
-      .getConnection()
-      .execute<
-        {
-          attempts: number;
-          published_at: string | null;
-          next_attempt_at: string | null;
-        }[]
-      >("select attempts, published_at, next_attempt_at from outbox_messages where id = ?", [message.id]);
+    const [row] = await orm.em.getConnection().execute<
+      {
+        attempts: number;
+        published_at: string | null;
+        next_attempt_at: string | null;
+      }[]
+    >("select attempts, published_at, next_attempt_at from outbox_messages where id = ?", [message.id]);
     expect(row!.published_at).toBeNull();
     expect(row!.attempts).toBe(1);
     expect(row!.next_attempt_at).not.toBeNull();

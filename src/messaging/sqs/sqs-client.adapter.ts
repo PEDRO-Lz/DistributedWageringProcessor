@@ -72,6 +72,17 @@ export class SqsClientAdapter implements SqsPort {
     );
   }
 
+  // Nunca passa pelo cache de resolveQueueUrl: um health check que só
+  // confirma um sucesso antigo, guardado em memória, não serve pra nada
+  async checkConnection(queueName: string): Promise<void> {
+    const result = await this.client.send(
+      new GetQueueUrlCommand({ QueueName: queueName }),
+    );
+    if (!result.QueueUrl) {
+      throw new Error(`Fila "${queueName}" não encontrada`);
+    }
+  }
+
   private async resolveQueueUrl(queueName: string): Promise<string> {
     const cached = this.queueUrlCache.get(queueName);
     if (cached) {
