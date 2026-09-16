@@ -1,6 +1,8 @@
 import { defineConfig } from "@mikro-orm/postgresql";
+import { UnderscoreNamingStrategy } from "@mikro-orm/core";
 
 export default defineConfig({
+  namingStrategy: UnderscoreNamingStrategy,
   host: process.env.DATABASE_HOST ?? "localhost",
   port: Number(process.env.DATABASE_PORT ?? 5432),
   user: process.env.DATABASE_USER ?? "wagering",
@@ -8,10 +10,6 @@ export default defineConfig({
   dbName: process.env.DATABASE_NAME ?? "wagering",
   entities: ["./src/**/*.entity.js"],
   entitiesTs: ["./src/**/*.entity.ts"],
-  discovery: {
-    // Sem entidades ainda
-    warnWhenNoEntities: false,
-  },
   migrations: {
     path: "migrations",
     pathTs: "migrations",
