@@ -11,6 +11,8 @@ adapters. Bun + TypeScript + MikroORM + Postgres + NestJS.
 
 ## Como subir
 
+Opção A, com `bun` direto no host:
+
 ```bash
 bun install
 cp .env.example .env
@@ -20,11 +22,28 @@ bun run start    # API, processo 1
 bun run worker   # worker (SQS consumer/publisher + scheduler), processo 2
 ```
 
+Opção B, `api`/`worker` também em container:
+
+```bash
+cp .env.example .env
+docker compose up -d postgres localstack keycloak
+bun install && bun run migration:up   # CLI do MikroORM ainda roda no host
+docker compose up -d api worker
+```
+
+As duas opções usam a **mesma porta** (`PORT`/`WORKER_PORT` do `.env`): os
+containers `api`/`worker` usam `network_mode: host` (só Linux) de propósito,
+pra reusar o `.env` sem repontar hostname nenhum pra nome de serviço do
+Docker. Isso também significa que as duas opções **não rodam juntas**: se
+`bun run start`/`worker` já estiverem de pé no host, `docker compose up api
+worker` falha com `EADDRINUSE` na mesma porta. Pare um antes de subir o
+outro.
+
 `.env` é lido pela aplicação (`DATABASE_*`, `PORT`, `WORKER_PORT`,
 `AWS_REGION`, `SQS_ENDPOINT`, `KEYCLOAK_*`, `OIDC_AUDIENCE`) e pelo
-`docker-compose.yml` (Postgres, LocalStack, Keycloak). Sem `.env`, tudo cai
-em um fallback igual ao de `.env.example`, então funciona também sem copiar
-nada.
+`docker-compose.yml` (Postgres, LocalStack, Keycloak, e agora também
+`api`/`worker`). Sem `.env`, tudo cai em um fallback igual ao de
+`.env.example`, então funciona também sem copiar nada.
 
 API sobe em `http://localhost:3000`, worker em `http://localhost:3001`
 (só `/health`). Portas trocam em `.env` (`PORT`, `WORKER_PORT`).
@@ -175,7 +194,11 @@ bun test
 Roda tudo de uma vez, `test/support/test-orm.ts` e `test/support/sqs-test-
 utils.ts` cuidam do bootstrap (sem container de DI, wiring manual, igual
 `CoreModule` mas pra teste). Precisa de Postgres, LocalStack e Keycloak de
-pé (não sobe nada sozinho).
+pé (não sobe nada sozinho). Os 125 testes (unit/integration/concurrency/
+messaging) passam com `api`/`worker` rodando em container também, contanto
+que o `worker` esteja parado durante o `bun test` (ver aviso de disputa de
+fila abaixo); confirmado rodando de verdade depois de adicionar as opções
+de Docker pra `api`/`worker`.
 
 - `test/unit`: domínio puro, sem infraestrutura.
 - `test/integration`: um caso de uso ou repositório por vez, Postgres real
@@ -193,6 +216,34 @@ disputa (não é bug, é o mesmo consumidor de produção roubando a mensagem do
 teste). Sempre confira `ps aux` antes de descartar isso como bug, um `bun
 run worker` esquecido de uma sessão anterior já causou exatamente esse
 sintoma neste projeto.
+
+Rodou `bun run test:load`? Ele gera tráfego real em `wager-events.fifo`
+(centenas de mensagens), mais do que o `drainQueue` dos testes de mensageria
+dá conta de limpar sozinho no `beforeEach`. Se `publish-outbox-batch` ou
+`dual-outbox-publisher` falharem com "recebeu mais mensagens que o
+esperado" depois de rodar o teste de carga, purga as filas na mão antes de
+rodar `bun test` de novo:
+```bash
+for Q in wager-events.fifo wager-transactions.fifo wager-transactions-dlq.fifo; do
+  URL=$(docker compose exec -T localstack awslocal sqs get-queue-url --queue-name "$Q" --query QueueUrl --output text)
+  docker compose exec -T localstack awslocal sqs purge-queue --queue-url "$URL"
+done
+```
+
+## Teste de carga
+
+```bash
+bun run test:load
+```
+
+Script manual (não `bun:test`), precisa da API de pé (`bun run start`) e,
+opcionalmente, do worker (`bun run worker`, só pra reportar o lag de
+publicação da outbox). Fase 1: throughput/latência com 50 wallets
+diferentes, sem contenção. Fase 2: 50 `BET`s em paralelo contra uma única
+wallet, verificando que o número de `PROCESSED` bate exatamente com o
+máximo matematicamente possível dado o saldo, e que a reconciliação fica
+consistente. Números reais da última execução em
+[`LOAD_TEST_REPORT.md`](./LOAD_TEST_REPORT.md).
 
 ## Progresso
 
