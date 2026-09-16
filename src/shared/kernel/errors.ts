@@ -61,3 +61,30 @@ export class UnbalancedLedgerEntryError extends DomainError {
     );
   }
 }
+
+export class MissingReferenceError extends DomainError {
+  readonly code = "VALIDATION_MISSING_REFERENCE";
+
+  constructor(kind: string) {
+    super(
+      `WagerTransactionKind "${kind}" exige um referenceExternalTransactionId`,
+    );
+  }
+}
+
+export class InvalidTransactionStateError extends DomainError {
+  readonly code = "INVALID_TRANSACTION_STATE";
+
+  constructor(currentStatus: string, attemptedTransition: string) {
+    super(
+      `Não é possível aplicar "${attemptedTransition}" numa WagerTransaction em status terminal "${currentStatus}"`,
+    );
+  }
+}
+export class InvariantViolationError extends DomainError {
+  readonly code = "INVARIANT_VIOLATION";
+
+  constructor(message: string) {
+    super(message);
+  }
+}
