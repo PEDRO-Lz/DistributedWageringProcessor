@@ -4,6 +4,14 @@ Processador de transações de apostas (BET/WIN/LOSS/REFUND/ROLLBACK) com wallet
 ledger, idempotência e resolução de referência, seguindo DDD/ports and
 adapters. Bun + TypeScript + MikroORM + Postgres + NestJS.
 
+## Arquitetura (visão geral)
+
+Dois processos Bun independentes, cada um com seu próprio pool de conexão
+com o Postgres. Detalhe de cada decisão em [`ARCHITECTURE.md`](./ARCHITECTURE.md).
+
+<img src="./architecture.png" alt="Arquitetura do sistema" width="800">
+
+
 ## Requisitos
 
 - Bun 1.4+
@@ -273,3 +281,4 @@ consistente. Números reais da última execução em
 - Teste de exaustão real de DLQ (LocalStack real, sem mock, maxReceiveCount da SQS)
 - Teste de dois publishers de outbox concorrentes (dois pools MikroORM, sem duplicar nem perder)
 - Documentação final (README completo, ARCHITECTURE.md com decisões, trade-offs e taxonomia de erros)
+- Teste de carga: fase 1 (throughput/latência sem contenção) + fase 2 (contenção real, verificada por reconciliação), números reais em LOAD_TEST_REPORT.md
