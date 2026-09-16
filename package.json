@@ -12,12 +12,14 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "start": "bun run src/main.ts",
+    "worker": "bun run src/worker.ts",
     "migration:create": "mikro-orm migration:create",
     "migration:up": "mikro-orm migration:up",
     "migration:down": "mikro-orm migration:down",
     "migration:pending": "mikro-orm migration:pending"
   },
   "dependencies": {
+    "@aws-sdk/client-sqs": "^3.1133.0",
     "@mikro-orm/core": "^7.2.0",
     "@mikro-orm/migrations": "^7.2.0",
     "@mikro-orm/postgresql": "^7.2.0",

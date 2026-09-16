@@ -17,5 +17,26 @@ services:
       timeout: 3s
       retries: 20
 
+  localstack:
+    image: localstack/localstack:3.8
+    environment:
+      SERVICES: sqs
+      AWS_DEFAULT_REGION: ${AWS_REGION:-us-east-1}
+    ports:
+      - '${LOCALSTACK_PORT:-4566}:4566'
+    volumes:
+      - localstack-data:/var/lib/localstack
+      - ./infra/localstack/init-queues.sh:/etc/localstack/init/ready.d/init-queues.sh
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'curl -sf http://localhost:4566/_localstack/health | grep -q ''"sqs": "available"''',
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
 volumes:
   postgres-data:
+  localstack-data:

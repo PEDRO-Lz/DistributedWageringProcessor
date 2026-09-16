@@ -4,6 +4,8 @@ import { MikroOrmWalletRepository } from "../../src/wallets/infrastructure/persi
 import { MikroOrmWalletLedgerRepository } from "../../src/wallets/infrastructure/persistence/wallet-ledger-entry.repository";
 import { MikroOrmWagerTransactionRepository } from "../../src/wagering/infrastructure/persistence/wager-transaction.repository";
 import { MikroOrmOutboxRepository } from "../../src/messaging/outbox/outbox-message.repository";
+import { MikroOrmInboxRepository } from "../../src/messaging/inbox/inbox-message.repository";
+import { SqsClientAdapter } from "../../src/messaging/sqs/sqs-client.adapter";
 import { OpenWalletUseCase } from "../../src/wallets/application/use-cases/open-wallet.use-case";
 import { GetWalletUseCase } from "../../src/wallets/application/use-cases/get-wallet.use-case";
 import { GetWalletLedgerUseCase } from "../../src/wallets/application/use-cases/get-wallet-ledger.use-case";
@@ -11,6 +13,8 @@ import { ReconcileWalletUseCase } from "../../src/wallets/application/use-cases/
 import { SubmitWagerTransactionUseCase } from "../../src/wagering/application/use-cases/submit-wager-transaction.use-case";
 import { GetWagerTransactionUseCase } from "../../src/wagering/application/use-cases/get-wager-transaction.use-case";
 import { ReprocessPendingReferencesUseCase } from "../../src/wagering/application/use-cases/reprocess-pending-references.use-case";
+import { ConsumeWagerTransactionBatchUseCase } from "../../src/wagering/application/use-cases/consume-wager-transaction-batch.use-case";
+import { PublishOutboxBatchUseCase } from "../../src/messaging/outbox/publish-outbox-batch.use-case";
 import { WagerTransactionFinalizer } from "../../src/wagering/application/wager-transaction-finalizer";
 
 /**
@@ -21,6 +25,7 @@ import { WagerTransactionFinalizer } from "../../src/wagering/application/wager-
  */
 export interface TestInstance {
   orm: MikroORM;
+  sqs: SqsClientAdapter;
   openWallet: OpenWalletUseCase;
   getWallet: GetWalletUseCase;
   getLedger: GetWalletLedgerUseCase;
@@ -28,6 +33,8 @@ export interface TestInstance {
   submit: SubmitWagerTransactionUseCase;
   getTransaction: GetWagerTransactionUseCase;
   reprocess: ReprocessPendingReferencesUseCase;
+  consumeWagerTransactionBatch: ConsumeWagerTransactionBatchUseCase;
+  publishOutboxBatch: PublishOutboxBatchUseCase;
 }
 
 export async function createTestInstance(): Promise<TestInstance> {
@@ -38,6 +45,8 @@ export async function createTestInstance(): Promise<TestInstance> {
   const ledgerRepository = new MikroOrmWalletLedgerRepository();
   const wagerTransactionRepository = new MikroOrmWagerTransactionRepository();
   const outboxRepository = new MikroOrmOutboxRepository();
+  const inboxRepository = new MikroOrmInboxRepository();
+  const sqs = new SqsClientAdapter();
 
   const finalizer = new WagerTransactionFinalizer(
     wagerTransactionRepository,
@@ -46,8 +55,16 @@ export async function createTestInstance(): Promise<TestInstance> {
     outboxRepository,
   );
 
+  const submit = new SubmitWagerTransactionUseCase(
+    em,
+    finalizer,
+    walletRepository,
+    wagerTransactionRepository,
+  );
+
   return {
     orm,
+    sqs,
     openWallet: new OpenWalletUseCase(
       em,
       walletRepository,
@@ -62,12 +79,7 @@ export async function createTestInstance(): Promise<TestInstance> {
       walletRepository,
       ledgerRepository,
     ),
-    submit: new SubmitWagerTransactionUseCase(
-      em,
-      finalizer,
-      walletRepository,
-      wagerTransactionRepository,
-    ),
+    submit,
     getTransaction: new GetWagerTransactionUseCase(
       em,
       wagerTransactionRepository,
@@ -77,6 +89,17 @@ export async function createTestInstance(): Promise<TestInstance> {
       finalizer,
       wagerTransactionRepository,
       walletRepository,
+    ),
+    consumeWagerTransactionBatch: new ConsumeWagerTransactionBatchUseCase(
+      em,
+      sqs,
+      inboxRepository,
+      submit,
+    ),
+    publishOutboxBatch: new PublishOutboxBatchUseCase(
+      em,
+      outboxRepository,
+      sqs,
     ),
   };
 }
