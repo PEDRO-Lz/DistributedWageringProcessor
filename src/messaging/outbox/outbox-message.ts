@@ -72,8 +72,11 @@ export class OutboxMessage {
     return this._publishedAt;
   }
 
+  // MikroORM reidrata uma coluna vazia como `null`, não `undefined`,
+  // mesmo a interface declarando `Date | undefined`
+  // `!= null` cobre os dois de uma vez
   isPending(): boolean {
-    return this._publishedAt === undefined;
+    return this._publishedAt == null;
   }
 
   isDue(now: Date): boolean {

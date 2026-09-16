@@ -88,3 +88,11 @@ export class InvariantViolationError extends DomainError {
     super(message);
   }
 }
+
+export class InvalidCursorError extends DomainError {
+  readonly code = "VALIDATION_INVALID_CURSOR";
+
+  constructor(cursor: string) {
+    super(`Cursor de paginação inválido: "${cursor}"`);
+  }
+}

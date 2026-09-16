@@ -49,8 +49,11 @@ export class InboxMessage {
     return this._processedAt;
   }
 
+  // MikroORM reidrata uma coluna vazia como `null`, não `undefined`,
+  // mesmo a interface declarando `Date | undefined`
+  // `!= null` cobre os dois de uma vez
   isProcessed(): boolean {
-    return this._processedAt !== undefined;
+    return this._processedAt != null;
   }
 
   markProcessed(at: Date): void {
