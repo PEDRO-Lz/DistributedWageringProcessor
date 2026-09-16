@@ -41,3 +41,23 @@ export class CurrencyMismatchError extends DomainError {
     super(`Moedas incompatíveis: esperada "${expected}", recebida "${actual}"`);
   }
 }
+
+export class InsufficientBalanceError extends DomainError {
+  readonly code = "INSUFFICIENT_BALANCE";
+
+  constructor(walletId: string, available: string, requested: string) {
+    super(
+      `Wallet ${walletId} tem saldo insuficiente: disponível ${available}, solicitado ${requested}`,
+    );
+  }
+}
+
+export class UnbalancedLedgerEntryError extends DomainError {
+  readonly code = "UNBALANCED_LEDGER_ENTRY";
+
+  constructor() {
+    super(
+      "balanceBefore +/- money precisa ser igual a balanceAfter em um WalletLedgerEntry, e money precisa ser positivo",
+    );
+  }
+}
