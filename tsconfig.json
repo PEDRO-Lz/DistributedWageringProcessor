@@ -6,6 +6,12 @@
     "module": "Preserve",
     "moduleDetection": "force",
     "types": ["bun"],
+    // NestJS usa decorators no estilo antigo (experimental), não o padrão
+    // novo do ECMAScript. emitDecoratorMetadata guarda o tipo de cada
+    // parâmetro do construtor em runtime, é assim que a injeção de
+    // dependência do Nest descobre o que injetar
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
 
     // Bundler mode
     "moduleResolution": "bundler",
