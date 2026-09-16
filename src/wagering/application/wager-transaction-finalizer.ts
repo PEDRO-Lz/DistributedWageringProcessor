@@ -1,4 +1,5 @@
 import type { EntityManager } from "@mikro-orm/postgresql";
+import { computeReferenceBackoffMs } from "./reference-backoff";
 import {
   CurrencyMismatchError,
   InsufficientBalanceError,
@@ -142,7 +143,10 @@ export class WagerTransactionFinalizer {
     tx: WagerTransaction,
     ctx: EventContext,
   ): Promise<void> {
-    tx.markPendingReference();
+    const nextRetryAt = new Date(
+      ctx.now.getTime() + computeReferenceBackoffMs(tx.referenceRetryAttempts),
+    );
+    tx.markPendingReference(nextRetryAt);
     await this.wagerTransactionRepository.save(em, tx);
     this.outboxRepository.insert(
       em,

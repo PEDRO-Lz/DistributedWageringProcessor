@@ -9,5 +9,6 @@ export enum FailureCode {
   ReferenceInvalidState = "REFERENCE_INVALID_STATE",
   ReferenceAmountMismatch = "REFERENCE_AMOUNT_MISMATCH",
   ReferenceAlreadyReversed = "REFERENCE_ALREADY_REVERSED",
+  ReferenceResolutionTimeout = "REFERENCE_RESOLUTION_TIMEOUT",
   PersistenceFailure = "PERSISTENCE_FAILURE",
 }

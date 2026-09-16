@@ -28,6 +28,8 @@ export function toWagerTransactionDomain(
     referenceTransactionId: entity.referenceTransactionId ?? undefined,
     failureCode: (entity.failureCode as FailureCode | null) ?? undefined,
     processedAt: entity.processedAt ?? undefined,
+    referenceRetryAttempts: entity.referenceRetryAttempts,
+    nextReferenceRetryAt: entity.nextReferenceRetryAt ?? undefined,
   });
 }
 
@@ -53,5 +55,7 @@ export function toWagerTransactionEntity(
     failureCode: tx.failureCode ?? null,
     createdAt: tx.createdAt,
     processedAt: tx.processedAt ?? null,
+    referenceRetryAttempts: tx.referenceRetryAttempts,
+    nextReferenceRetryAt: tx.nextReferenceRetryAt ?? null,
   };
 }

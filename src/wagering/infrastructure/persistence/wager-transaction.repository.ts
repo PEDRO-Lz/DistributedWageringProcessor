@@ -66,18 +66,19 @@ export class MikroOrmWagerTransactionRepository implements WagerTransactionRepos
     return row ? toWagerTransactionDomain(row) : null;
   }
 
-  /**
-   * FOR UPDATE SKIP LOCKED, pra várias instâncias do worker de retry rodarem
-   * em paralelo sem colidir. `now` ainda não filtra nada
-   */
+  // FOR UPDATE SKIP LOCKED, pra várias instâncias do worker de retry rodarem em paralelo sem colidir
   async findDuePendingReferenceBatch(
     em: EntityManager,
-    _now: Date,
+    now: Date,
     limit: number,
   ): Promise<WagerTransaction[]> {
     const rows = await em
       .createQueryBuilder(WagerTransactionEntity, "t")
       .where({ status: WagerTransactionStatus.PendingReference })
+      .andWhere(
+        "(t.next_reference_retry_at is null or t.next_reference_retry_at <= ?)",
+        [now],
+      )
       .limit(limit)
       .setLockMode(LockMode.PESSIMISTIC_PARTIAL_WRITE)
       .getResultList();

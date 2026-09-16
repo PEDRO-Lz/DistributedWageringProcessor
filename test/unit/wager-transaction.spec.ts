@@ -129,8 +129,10 @@ describe("WagerTransaction", () => {
           referenceExternalTransactionId: "bet-1",
         }),
       );
-      tx.markPendingReference();
+      tx.markPendingReference(now);
       expect(tx.status).toBe(WagerTransactionStatus.PendingReference);
+      expect(tx.referenceRetryAttempts).toBe(1);
+      expect(tx.nextReferenceRetryAt).toEqual(now);
     });
 
     it("reject() move para REJECTED com failureCode e processedAt", () => {
@@ -163,7 +165,7 @@ describe("WagerTransaction", () => {
       expect(() => tx.fail(FailureCode.PersistenceFailure, now)).toThrow(
         InvalidTransactionStateError,
       );
-      expect(() => tx.markPendingReference()).toThrow(
+      expect(() => tx.markPendingReference(now)).toThrow(
         InvalidTransactionStateError,
       );
     });
@@ -195,7 +197,7 @@ describe("WagerTransaction", () => {
           referenceExternalTransactionId: "bet-1",
         }),
       );
-      tx.markPendingReference();
+      tx.markPendingReference(now);
       expect(tx.isTerminal()).toBe(false);
       expect(() => tx.markProcessed("tx-bet-1", now)).not.toThrow();
     });
@@ -311,6 +313,8 @@ describe("WagerTransaction", () => {
         referenceTransactionId: undefined,
         failureCode: undefined,
         processedAt: now,
+        referenceRetryAttempts: 0,
+        nextReferenceRetryAt: undefined,
       });
       expect(tx.status).toBe(WagerTransactionStatus.Processed);
     });

@@ -24,5 +24,7 @@ export const WagerTransactionEntity = defineEntity({
     failureCode: p.string().nullable(),
     createdAt: p.datetime(),
     processedAt: p.datetime().nullable(),
+    referenceRetryAttempts: p.integer(),
+    nextReferenceRetryAt: p.datetime().nullable(),
   },
 });

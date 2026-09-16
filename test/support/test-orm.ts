@@ -10,6 +10,7 @@ import { GetWalletLedgerUseCase } from "../../src/wallets/application/use-cases/
 import { ReconcileWalletUseCase } from "../../src/wallets/application/use-cases/reconcile-wallet.use-case";
 import { SubmitWagerTransactionUseCase } from "../../src/wagering/application/use-cases/submit-wager-transaction.use-case";
 import { GetWagerTransactionUseCase } from "../../src/wagering/application/use-cases/get-wager-transaction.use-case";
+import { ReprocessPendingReferencesUseCase } from "../../src/wagering/application/use-cases/reprocess-pending-references.use-case";
 import { WagerTransactionFinalizer } from "../../src/wagering/application/wager-transaction-finalizer";
 
 /**
@@ -26,6 +27,7 @@ export interface TestInstance {
   reconcile: ReconcileWalletUseCase;
   submit: SubmitWagerTransactionUseCase;
   getTransaction: GetWagerTransactionUseCase;
+  reprocess: ReprocessPendingReferencesUseCase;
 }
 
 export async function createTestInstance(): Promise<TestInstance> {
@@ -69,6 +71,12 @@ export async function createTestInstance(): Promise<TestInstance> {
     getTransaction: new GetWagerTransactionUseCase(
       em,
       wagerTransactionRepository,
+    ),
+    reprocess: new ReprocessPendingReferencesUseCase(
+      em,
+      finalizer,
+      wagerTransactionRepository,
+      walletRepository,
     ),
   };
 }

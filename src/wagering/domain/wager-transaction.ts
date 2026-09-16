@@ -51,6 +51,8 @@ export interface WagerTransactionState {
   referenceTransactionId: string | undefined;
   failureCode: FailureCode | undefined;
   processedAt: Date | undefined;
+  referenceRetryAttempts: number;
+  nextReferenceRetryAt: Date | undefined;
 }
 
 function requiresReferenceFor(kind: WagerTransactionKind): boolean {
@@ -79,8 +81,11 @@ export class WagerTransaction {
     private _referenceTransactionId: string | undefined,
     private _failureCode: FailureCode | undefined,
     private _processedAt: Date | undefined,
+    private _referenceRetryAttempts: number,
+    private _nextReferenceRetryAt: Date | undefined,
   ) {}
 
+  // Nasce PENDING. Valida a exigência de referência por kind. OPENING não pode entrar por aqui
   static create(props: CreateWagerTransactionProps): WagerTransaction {
     if (props.kind === WagerTransactionKind.Opening) {
       throw new InvariantViolationError(
@@ -112,9 +117,12 @@ export class WagerTransaction {
       undefined,
       undefined,
       undefined,
+      0,
+      undefined,
     );
   }
 
+  // Uso interno exclusivo do OpenWalletUseCase. Nasce já PROCESSED, nunca passa por PENDING
   static createOpening(
     props: CreateOpeningWagerTransactionProps,
   ): WagerTransaction {
@@ -136,6 +144,8 @@ export class WagerTransaction {
       undefined,
       undefined,
       props.now,
+      0,
+      undefined,
     );
   }
 
@@ -158,6 +168,8 @@ export class WagerTransaction {
       state.referenceTransactionId,
       state.failureCode,
       state.processedAt,
+      state.referenceRetryAttempts,
+      state.nextReferenceRetryAt,
     );
   }
 
@@ -177,6 +189,14 @@ export class WagerTransaction {
     return this._processedAt;
   }
 
+  get referenceRetryAttempts(): number {
+    return this._referenceRetryAttempts;
+  }
+
+  get nextReferenceRetryAt(): Date | undefined {
+    return this._nextReferenceRetryAt;
+  }
+
   markProcessed(referenceTransactionId: string | undefined, at: Date): void {
     this.assertNotTerminal("markProcessed");
     this._status = WagerTransactionStatus.Processed;
@@ -184,9 +204,12 @@ export class WagerTransaction {
     this._processedAt = at;
   }
 
-  markPendingReference(): void {
+  // Cada chamada é uma nova tentativa: incrementa o contador e agenda a próxima
+  markPendingReference(nextRetryAt: Date): void {
     this.assertNotTerminal("markPendingReference");
     this._status = WagerTransactionStatus.PendingReference;
+    this._referenceRetryAttempts += 1;
+    this._nextReferenceRetryAt = nextRetryAt;
   }
 
   reject(code: FailureCode, at: Date): void {
@@ -211,10 +234,12 @@ export class WagerTransaction {
     );
   }
 
+  /** false só para LOSS: registra o resultado sem mover saldo. */
   affectsBalance(): boolean {
     return this.kind !== WagerTransactionKind.Loss;
   }
 
+  /** true para REFUND e ROLLBACK. */
   requiresReference(): boolean {
     return requiresReferenceFor(this.kind);
   }
@@ -223,6 +248,11 @@ export class WagerTransaction {
     return this.payloadHash === payloadHash;
   }
 
+  /**
+   * BET debita, WIN/REFUND/OPENING creditam. ROLLBACK inverte a direção
+   * da transação referenciada (reverte um débito com crédito, e vice-versa).
+   * LOSS nunca deve chegar aqui, não gera lançamento.
+   */
   ledgerDirectionFor(reference?: WagerTransaction): LedgerDirection {
     switch (this.kind) {
       case WagerTransactionKind.Opening:
