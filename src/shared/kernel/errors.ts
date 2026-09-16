@@ -110,3 +110,26 @@ export class WalletNotFoundError extends DomainError {
     super(`Wallet ${walletId} não encontrada`);
   }
 }
+export class WalletPlayerMismatchError extends DomainError {
+  readonly code = "VALIDATION_WALLET_PLAYER_MISMATCH";
+
+  constructor(walletId: string, playerId: string) {
+    super(`Wallet ${walletId} não pertence ao player ${playerId}`);
+  }
+}
+export class IdempotencyConflictError extends DomainError {
+  readonly code = "IDEMPOTENCY_CONFLICT";
+
+  constructor(idempotencyKey: string, detail?: string) {
+    super(
+      `Idempotency-Key "${idempotencyKey}" já foi usada com um payload diferente${detail ? `: ${detail}` : ""}`,
+    );
+  }
+}
+export class TransientProcessingError extends DomainError {
+  readonly code = "INFRASTRUCTURE_TRANSIENT";
+
+  constructor(message: string) {
+    super(message);
+  }
+}

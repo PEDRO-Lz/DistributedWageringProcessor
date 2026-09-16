@@ -8,6 +8,9 @@ import { OpenWalletUseCase } from "../../src/wallets/application/use-cases/open-
 import { GetWalletUseCase } from "../../src/wallets/application/use-cases/get-wallet.use-case";
 import { GetWalletLedgerUseCase } from "../../src/wallets/application/use-cases/get-wallet-ledger.use-case";
 import { ReconcileWalletUseCase } from "../../src/wallets/application/use-cases/reconcile-wallet.use-case";
+import { SubmitWagerTransactionUseCase } from "../../src/wagering/application/use-cases/submit-wager-transaction.use-case";
+import { GetWagerTransactionUseCase } from "../../src/wagering/application/use-cases/get-wager-transaction.use-case";
+import { WagerTransactionFinalizer } from "../../src/wagering/application/wager-transaction-finalizer";
 
 /**
  * Abre uma instância nova do MikroORM (pool de conexão próprio, igual um
@@ -21,6 +24,8 @@ export interface TestInstance {
   getWallet: GetWalletUseCase;
   getLedger: GetWalletLedgerUseCase;
   reconcile: ReconcileWalletUseCase;
+  submit: SubmitWagerTransactionUseCase;
+  getTransaction: GetWagerTransactionUseCase;
 }
 
 export async function createTestInstance(): Promise<TestInstance> {
@@ -31,6 +36,13 @@ export async function createTestInstance(): Promise<TestInstance> {
   const ledgerRepository = new MikroOrmWalletLedgerRepository();
   const wagerTransactionRepository = new MikroOrmWagerTransactionRepository();
   const outboxRepository = new MikroOrmOutboxRepository();
+
+  const finalizer = new WagerTransactionFinalizer(
+    wagerTransactionRepository,
+    walletRepository,
+    ledgerRepository,
+    outboxRepository,
+  );
 
   return {
     orm,
@@ -47,6 +59,16 @@ export async function createTestInstance(): Promise<TestInstance> {
       em,
       walletRepository,
       ledgerRepository,
+    ),
+    submit: new SubmitWagerTransactionUseCase(
+      em,
+      finalizer,
+      walletRepository,
+      wagerTransactionRepository,
+    ),
+    getTransaction: new GetWagerTransactionUseCase(
+      em,
+      wagerTransactionRepository,
     ),
   };
 }
