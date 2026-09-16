@@ -1,0 +1,11 @@
+{
+  "name": "distributedwageringprocessor",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^7"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}
