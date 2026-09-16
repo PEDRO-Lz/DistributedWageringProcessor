@@ -1,28 +1,9 @@
 import { afterAll, beforeEach, describe, expect, it } from "bun:test";
 import { MikroORM } from "@mikro-orm/postgresql";
 import mikroOrmConfig from "../../mikro-orm.config";
-import {
-  IntegrationEvent,
-  type EventContext,
-} from "../../src/shared/kernel/integration-event";
 import { OutboxMessage } from "../../src/messaging/outbox/outbox-message";
 import { MikroOrmOutboxRepository } from "../../src/messaging/outbox/outbox-message.repository";
-
-class FakeEvent extends IntegrationEvent<{ foo: string }> {
-  readonly eventType = "FakeEvent";
-  readonly version = 1;
-
-  static from(ctx: EventContext): FakeEvent {
-    return new FakeEvent({
-      eventId: crypto.randomUUID(),
-      aggregateId: "aggregate-1",
-      correlationId: ctx.correlationId,
-      causationId: ctx.causationId,
-      occurredAt: ctx.now,
-      data: { foo: "bar" },
-    });
-  }
-}
+import { FakeEvent } from "../support/fake-event";
 
 describe("MikroOrmOutboxRepository (integração, Postgres real)", () => {
   let orm: MikroORM;
@@ -40,7 +21,7 @@ describe("MikroOrmOutboxRepository (integração, Postgres real)", () => {
   it("uma mensagem recém reidratada do banco, nunca publicada, ainda reporta isPending() === true", async () => {
     const now = new Date();
     const message = OutboxMessage.enqueue(
-      FakeEvent.from({ correlationId: "corr-1", now }),
+      FakeEvent.from("aggregate-1", { correlationId: "corr-1", now }),
     );
     await orm.em.transactional(async (em) => repository.insert(em, message));
 
@@ -54,7 +35,7 @@ describe("MikroOrmOutboxRepository (integração, Postgres real)", () => {
   it("findDueBatch() encontra e markPublished() funciona numa mensagem nunca publicada antes", async () => {
     const now = new Date();
     const message = OutboxMessage.enqueue(
-      FakeEvent.from({ correlationId: "corr-1", now }),
+      FakeEvent.from("aggregate-1", { correlationId: "corr-1", now }),
     );
     await orm.em.transactional(async (em) => repository.insert(em, message));
 

@@ -189,3 +189,7 @@ Métricas Prometheus (`prom-client`), um `Registry` por processo:
 - Logger estruturado (pino + AsyncLocalStorage pra correlationId/messageId/providerId)
 - Métricas Prometheus por processo, incluindo lock wait/conflicts, duração de processamento e lag de publicação
 - /health/ready do worker, checando SQS além do Postgres
+- Teste de imutabilidade estrutural (triggers do Postgres, ledger/wager_transactions/outbox)
+- Teste de concorrência: REFUND/ROLLBACK fora de ordem, resolvido depois, consistência provada via reconcile
+- Teste de exaustão real de DLQ (LocalStack real, sem mock, maxReceiveCount da SQS)
+- Teste de dois publishers de outbox concorrentes (dois pools MikroORM, sem duplicar nem perder)

@@ -1,10 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "bun:test";
 import { MikroORM } from "@mikro-orm/postgresql";
 import mikroOrmConfig from "../../mikro-orm.config";
-import {
-  IntegrationEvent,
-  type EventContext,
-} from "../../src/shared/kernel/integration-event";
 import { OutboxMessage } from "../../src/messaging/outbox/outbox-message";
 import { MikroOrmOutboxRepository } from "../../src/messaging/outbox/outbox-message.repository";
 import { PublishOutboxBatchUseCase } from "../../src/messaging/outbox/publish-outbox-batch.use-case";
@@ -14,22 +10,8 @@ import type {
   ReceivedSqsMessage,
   SqsPort,
 } from "../../src/messaging/sqs/sqs.port";
-
-class FakeEvent extends IntegrationEvent<{ foo: string }> {
-  readonly eventType = "FakeEvent";
-  readonly version = 1;
-
-  static from(aggregateId: string, ctx: EventContext): FakeEvent {
-    return new FakeEvent({
-      eventId: crypto.randomUUID(),
-      aggregateId,
-      correlationId: ctx.correlationId,
-      causationId: ctx.causationId,
-      occurredAt: ctx.now,
-      data: { foo: "bar" },
-    });
-  }
-}
+import { drainQueue } from "../support/sqs-test-utils";
+import { FakeEvent } from "../support/fake-event";
 
 class AlwaysFailingSqs implements SqsPort {
   async send(): Promise<void> {
@@ -42,18 +24,6 @@ class AlwaysFailingSqs implements SqsPort {
   async delete(): Promise<void> {}
 }
 
-async function drainQueue(sqs: SqsPort): Promise<void> {
-  for (let i = 0; i < 10; i++) {
-    const messages = await sqs.receive(WAGER_EVENTS_QUEUE, 10, 0);
-    if (messages.length === 0) {
-      return;
-    }
-    for (const message of messages) {
-      await sqs.delete(WAGER_EVENTS_QUEUE, message.receiptHandle);
-    }
-  }
-}
-
 describe("PublishOutboxBatchUseCase (integração, Postgres + LocalStack reais)", () => {
   let orm: MikroORM;
   const outboxRepository = new MikroOrmOutboxRepository();
@@ -62,7 +32,7 @@ describe("PublishOutboxBatchUseCase (integração, Postgres + LocalStack reais)"
   beforeEach(async () => {
     orm = await MikroORM.init(mikroOrmConfig);
     await orm.em.getConnection().execute("truncate outbox_messages cascade");
-    await drainQueue(sqs);
+    await drainQueue(sqs, WAGER_EVENTS_QUEUE);
   });
 
   afterAll(async () => {

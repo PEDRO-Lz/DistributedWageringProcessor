@@ -9,25 +9,7 @@ import {
   resetDatabase,
   type TestInstance,
 } from "../support/test-orm";
-
-async function drainQueue(instance: TestInstance): Promise<void> {
-  for (let i = 0; i < 10; i++) {
-    const messages = await instance.sqs.receive(
-      WAGER_TRANSACTIONS_QUEUE,
-      10,
-      0,
-    );
-    if (messages.length === 0) {
-      return;
-    }
-    for (const message of messages) {
-      await instance.sqs.delete(
-        WAGER_TRANSACTIONS_QUEUE,
-        message.receiptHandle,
-      );
-    }
-  }
-}
+import { drainQueue } from "../support/sqs-test-utils";
 
 describe("ConsumeWagerTransactionBatchUseCase (integração, Postgres + LocalStack reais)", () => {
   let instance: TestInstance;
@@ -35,7 +17,7 @@ describe("ConsumeWagerTransactionBatchUseCase (integração, Postgres + LocalSta
   beforeEach(async () => {
     instance = await createTestInstance();
     await resetDatabase(instance);
-    await drainQueue(instance);
+    await drainQueue(instance.sqs, WAGER_TRANSACTIONS_QUEUE);
   });
 
   afterAll(async () => {

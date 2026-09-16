@@ -41,7 +41,16 @@ export interface SubmitWagerTransactionResult {
   balance: Money;
 }
 
-export class SubmitWagerTransactionUseCase {
+// Port pequeno pro consumer de fila não depender da classe concreta: deixa
+// testar com um stub de verdade (sempre lança TransientProcessingError,
+// pra provar exaustão de DLQ) sem precisar herdar da classe real
+export interface SubmitWagerTransactionPort {
+  execute(
+    cmd: SubmitWagerTransactionCommand,
+  ): Promise<SubmitWagerTransactionResult>;
+}
+
+export class SubmitWagerTransactionUseCase implements SubmitWagerTransactionPort {
   constructor(
     private readonly em: EntityManager,
     private readonly finalizer: WagerTransactionFinalizer,

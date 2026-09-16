@@ -1,31 +1,12 @@
 import { describe, expect, it } from "bun:test";
 import { OutboxMessage } from "../../src/messaging/outbox/outbox-message";
-import {
-  IntegrationEvent,
-  type EventContext,
-} from "../../src/shared/kernel/integration-event";
 import { InvariantViolationError } from "../../src/shared/kernel/errors";
+import { FakeEvent } from "../support/fake-event";
 
 const now = new Date("2026-01-01T00:00:00.000Z");
 
-class FakeEvent extends IntegrationEvent<{ foo: string }> {
-  readonly eventType = "FakeEvent";
-  readonly version = 1;
-
-  static from(ctx: EventContext): FakeEvent {
-    return new FakeEvent({
-      eventId: "event-1",
-      aggregateId: "aggregate-1",
-      correlationId: ctx.correlationId,
-      causationId: ctx.causationId,
-      occurredAt: ctx.now,
-      data: { foo: "bar" },
-    });
-  }
-}
-
 function fakeEvent() {
-  return FakeEvent.from({ correlationId: "corr-1", now });
+  return FakeEvent.from("aggregate-1", { correlationId: "corr-1", now });
 }
 
 describe("OutboxMessage", () => {

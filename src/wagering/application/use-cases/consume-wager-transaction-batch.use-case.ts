@@ -17,7 +17,7 @@ import {
   InvalidWagerTransactionMessageError,
   parseWagerTransactionMessage,
 } from "../parse-wager-transaction-message";
-import { SubmitWagerTransactionUseCase } from "./submit-wager-transaction.use-case";
+import type { SubmitWagerTransactionPort } from "./submit-wager-transaction.use-case";
 
 const CONSUMER_NAME = "wager-transactions-consumer";
 
@@ -43,7 +43,7 @@ export class ConsumeWagerTransactionBatchUseCase {
     private readonly em: EntityManager,
     private readonly sqs: SqsPort,
     private readonly inboxRepository: InboxRepositoryPort,
-    private readonly submitUseCase: SubmitWagerTransactionUseCase,
+    private readonly submitUseCase: SubmitWagerTransactionPort,
     private readonly metrics: MetricsPort = NOOP_METRICS,
   ) {}
 
