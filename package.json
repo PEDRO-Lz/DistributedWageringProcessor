@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "start": "bun run src/main.ts",
     "worker": "bun run src/worker.ts",
+    "test:load": "bun run test/load/run.ts",
     "migration:create": "mikro-orm migration:create",
     "migration:up": "mikro-orm migration:up",
     "migration:down": "mikro-orm migration:down",
