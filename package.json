@@ -2,13 +2,23 @@
   "name": "distributedwageringprocessor",
   "private": true,
   "devDependencies": {
+    "@mikro-orm/cli": "^7.2.0",
     "@types/bun": "latest",
+    "ajv": "^8.20.0",
+    "tsx": "^4.23.13",
     "typescript": "^7"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "migration:create": "mikro-orm migration:create",
+    "migration:up": "mikro-orm migration:up",
+    "migration:down": "mikro-orm migration:down",
+    "migration:pending": "mikro-orm migration:pending"
   },
   "dependencies": {
+    "@mikro-orm/core": "^7.2.0",
+    "@mikro-orm/migrations": "^7.2.0",
+    "@mikro-orm/postgresql": "^7.2.0",
     "uuidv7": "^1.2.1"
   }
 }
