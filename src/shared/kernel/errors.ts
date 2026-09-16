@@ -96,3 +96,17 @@ export class InvalidCursorError extends DomainError {
     super(`Cursor de paginação inválido: "${cursor}"`);
   }
 }
+export class DuplicateWalletError extends DomainError {
+  readonly code = "WALLET_ALREADY_EXISTS";
+
+  constructor(playerId: string, currency: string) {
+    super(`Já existe uma wallet pro player ${playerId} na moeda ${currency}`);
+  }
+}
+export class WalletNotFoundError extends DomainError {
+  readonly code = "WALLET_NOT_FOUND";
+
+  constructor(walletId: string) {
+    super(`Wallet ${walletId} não encontrada`);
+  }
+}

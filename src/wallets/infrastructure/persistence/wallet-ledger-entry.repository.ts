@@ -3,6 +3,7 @@ import { Money } from "../../../shared/kernel/money";
 import { decodeCursor, encodeCursor } from "../../../shared/pagination/cursor";
 import type {
   LedgerPage,
+  RecalculatedBalance,
   WalletLedgerRepositoryPort,
 } from "../../application/ports/wallet-ledger-repository.port";
 import type { WalletLedgerEntry } from "../../domain/wallet-ledger-entry";
@@ -58,7 +59,7 @@ export class MikroOrmWalletLedgerRepository implements WalletLedgerRepositoryPor
     em: EntityManager,
     walletId: string,
     currency: string,
-  ): Promise<Money> {
+  ): Promise<RecalculatedBalance> {
     const rows: LedgerSumRow[] = await em
       .getConnection()
       .execute(
@@ -72,6 +73,6 @@ export class MikroOrmWalletLedgerRepository implements WalletLedgerRepositoryPor
       total += row.direction === "DEBIT" ? -amount : amount;
     }
 
-    return Money.fromMinorUnits(total, currency);
+    return { balance: Money.fromMinorUnits(total, currency), checkedEntries: rows.length };
   }
 }

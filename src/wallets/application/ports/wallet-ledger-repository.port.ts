@@ -6,6 +6,10 @@ export interface LedgerPage {
   entries: WalletLedgerEntry[];
   nextCursor: string | undefined;
 }
+export interface RecalculatedBalance {
+  balance: Money;
+  checkedEntries: number;
+}
 
 export interface WalletLedgerRepositoryPort {
   insert(em: EntityManager, entry: WalletLedgerEntry): void;
@@ -20,7 +24,7 @@ export interface WalletLedgerRepositoryPort {
     em: EntityManager,
     walletId: string,
     currency: string,
-  ): Promise<Money>;
+  ): Promise<RecalculatedBalance>;
 }
 
 export const WALLET_LEDGER_REPOSITORY = Symbol("WALLET_LEDGER_REPOSITORY");
