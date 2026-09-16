@@ -6,7 +6,9 @@ import {
 } from "@nestjs/common";
 import type { MikroORM } from "@mikro-orm/postgresql";
 import { MIKRO_ORM } from "../shared/persistence/orm.tokens";
+import { Public } from "../shared/http/public.decorator";
 
+@Public()
 @Controller("health")
 export class HealthController {
   constructor(@Inject(MIKRO_ORM) private readonly orm: MikroORM) {}

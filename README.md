@@ -7,23 +7,24 @@ adapters. Bun + TypeScript + MikroORM + Postgres + NestJS.
 ## Requisitos
 
 - Bun 1.4+
-- Docker (Postgres + LocalStack, que simula SQS localmente)
+- Docker (Postgres + LocalStack, que simula SQS + Keycloak localmente)
 
 ## Como subir
 
 ```bash
 bun install
 cp .env.example .env
-docker compose up -d postgres localstack
+docker compose up -d postgres localstack keycloak
 bun run migration:up
 bun run start    # API, processo 1
 bun run worker   # worker (SQS consumer/publisher + scheduler), processo 2
 ```
 
 `.env` é lido pela aplicação (`DATABASE_*`, `PORT`, `WORKER_PORT`,
-`AWS_REGION`, `SQS_ENDPOINT`) e pelo `docker-compose.yml` (Postgres,
-LocalStack). Sem `.env`, tudo cai em um fallback igual ao de
-`.env.example`, então funciona também sem copiar nada.
+`AWS_REGION`, `SQS_ENDPOINT`, `KEYCLOAK_*`, `OIDC_AUDIENCE`) e pelo
+`docker-compose.yml` (Postgres, LocalStack, Keycloak). Sem `.env`, tudo cai
+em um fallback igual ao de `.env.example`, então funciona também sem copiar
+nada.
 
 API sobe em `http://localhost:3000`, worker em `http://localhost:3001`
 (só `/health`). Portas trocam em `.env` (`PORT`, `WORKER_PORT`).
@@ -34,6 +35,27 @@ Scripts:
 `bun run migration:create`  
 `migration:down`  
 `migration:pending`
+
+## Autenticação
+
+Toda rota de negócio (`/wallets/*`, `/wager-transactions/*`) exige
+`Authorization: Bearer <token>` com um JWT válido, emitido pelo Keycloak, com
+a role `provider`. `/health` continua aberto (`@Public()`). O worker nunca
+registra esse guard.
+
+O fluxo é `client_credentials` contra o client confidencial `wagering-api`, não `password` grant de usuário
+
+```bash
+curl -s -X POST http://localhost:8080/realms/wagering/protocol/openid-connect/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials" \
+  -d "client_id=wagering-api" \
+  -d "client_secret=wagering-api-secret"
+```
+
+O `access_token` da resposta vai no header `Authorization: Bearer ...` de
+qualquer chamada em `/wallets` ou `/wager-transactions`. Token expira em 5
+minutos (`expires_in`).
 
 ## Rotas
 
@@ -137,3 +159,4 @@ docker compose exec -T localstack awslocal sqs send-message \
 - Publisher da outbox (lote pendente, retry com backoff em falha de envio)
 - Consumer de wager-transactions.fifo, dedup por inbox, recuperação de crash
 - worker.ts: segundo processo Bun, scheduler roda consumer/publisher/retry de referência
+- Autenticação via Keycloak (client_credentials, role "provider", KeycloakAuthGuard global com @Public() pro health)
