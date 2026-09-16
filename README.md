@@ -46,7 +46,7 @@ registra esse guard.
 O fluxo é `client_credentials` contra o client confidencial `wagering-api`, não `password` grant de usuário. Essa request é direto no Keycloak:
 
 - `POST http://localhost:8080/realms/wagering/protocol/openid-connect/token`
-  Header: `Content-Type: `
+  Header: `Content-Type: application/x-www-form-urlencoded`
   Body (`x-www-form-urlencoded`, não JSON)
 
   ```
@@ -166,6 +166,34 @@ Métricas Prometheus (`prom-client`), um `Registry` por processo:
 - Mais os contadores por status/kind, replays, mensagens de fila por
   status, publicações e falhas de publicação da outbox.
 
+## Testes
+
+```bash
+bun test
+```
+
+Roda tudo de uma vez, `test/support/test-orm.ts` e `test/support/sqs-test-
+utils.ts` cuidam do bootstrap (sem container de DI, wiring manual, igual
+`CoreModule` mas pra teste). Precisa de Postgres, LocalStack e Keycloak de
+pé (não sobe nada sozinho).
+
+- `test/unit`: domínio puro, sem infraestrutura.
+- `test/integration`: um caso de uso ou repositório por vez, Postgres real
+  (idempotência, atomicidade, imutabilidade estrutural via SQL cru).
+- `test/concurrency`: múltiplas instâncias reais (`createTestInstance()`
+  abre um pool de conexão cada, como processos separados de verdade) batendo
+  na mesma wallet ao mesmo tempo.
+- `test/messaging`: LocalStack real, sem mock (consumo ponta a ponta,
+  exaustão de DLQ, dois publishers concorrentes).
+
+Se o `worker` (`bun run worker`) estiver rodando em paralelo, ele compete
+pelas mesmas filas reais que os testes de mensageria usam: para ele antes
+de rodar `bun test`, ou aceite que 1-2 testes de fila podem falhar por
+disputa (não é bug, é o mesmo consumidor de produção roubando a mensagem do
+teste). Sempre confira `ps aux` antes de descartar isso como bug, um `bun
+run worker` esquecido de uma sessão anterior já causou exatamente esse
+sintoma neste projeto.
+
 ## Progresso
 
 - Money como bigint imutável (centavos) e base de DomainError
@@ -193,3 +221,4 @@ Métricas Prometheus (`prom-client`), um `Registry` por processo:
 - Teste de concorrência: REFUND/ROLLBACK fora de ordem, resolvido depois, consistência provada via reconcile
 - Teste de exaustão real de DLQ (LocalStack real, sem mock, maxReceiveCount da SQS)
 - Teste de dois publishers de outbox concorrentes (dois pools MikroORM, sem duplicar nem perder)
+- Documentação final (README completo, ARCHITECTURE.md com decisões, trade-offs e taxonomia de erros)
